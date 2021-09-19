@@ -5,19 +5,19 @@ This is going to be a libary for a monte carlo simulation. Mostly going to be us
 
 import pandas as pd
 import numpy as np
-from concurrent import futures 
+from concurrent import futures
 
 import matplotlib.pyplot as plt
 
-class montecarlo:
+
+class MonteCarlo:
 
     '''
     Monte Carlo class: 
     '''
 
-    def __init__(self,returns_iter,  periods ,**kwargs):
-    # starting_value = 0,sims=10000, action = "multiply" , cores = 1, workers = None , seed = None):
-        
+    def __init__(self, returns_iter,  periods, **kwargs):
+        # starting_value = 0,sims=10000, action = "multiply" , cores = 1, workers = None , seed = None):
         '''
         Parameters
 
@@ -40,6 +40,9 @@ class montecarlo:
         action : str (optional)
             how are the numbers interacting (default is multiply), should only be multiply or add
 
+        goal_stop : bool (optional)
+            If 
+
         seed : int or 1-d array_like (optional)
             seed for numpy.random.seed
 
@@ -47,42 +50,49 @@ class montecarlo:
 
         self.returns_iter = returns_iter
         self.periods = periods
-        
-        self.starting_value = kwargs.get('starting_value',0)
-        self.sims = kwargs.get('sims',10000)
-        self.action = kwargs.get('action','multiply')
-        self.max_workers = kwargs.get('max_workers',5)
 
-        self.seed = kwargs.get('seed',None)
-        
+        self.starting_value = kwargs.get('starting_value', 0)
+        self.sims = kwargs.get('sims', 10000)
+        self.action = kwargs.get('action', 'multiply')
+        self.max_workers = kwargs.get('max_workers', 5)
+
+        self.goal_stop = kwargs.get('goal_stop', False)
+
+        if self.goal_stop:
+            self.max_allowance = kwargs.get('max_allowance', None)
+            self.min_allowance = kwargs.get('min_allowance', None)
+
+        self.seed = kwargs.get('seed', None)
+
         if self.seed:
             np.random.seed = self.seed
 
-        # self.simulatations = self.__run_monte()
-    
     def run_monte(self):
         '''
+        user will have to call this function as it is 
         default run monte carlo, combines simulations as they are ran
         '''
-        
+
         with futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-    
-            completed = executor.map(self.__get_next_sim,range(self.sims))
 
-        self.simulatations = pd.concat(completed, axis=1 ,copy=False)
-    
-        return self.simulatations
+            completed = executor.map(self.__get_next_sim, range(self.sims))
 
-    def __get_next_sim(self,simulation_requests):
+        self.simulatations = pd.concat(completed, axis=1, copy=False)
 
+        self.__get_final_row()
+
+        return None
+
+    def __get_next_sim(self, simulation_requests):
         '''
         makes a dataframe of returns pull randomly from returns_iter, then cum_sum() or sumprod() accordingly
         '''
 
-        random_returns = [self.__get_random_factor() for period in range(self.periods)]
-        random_returns.insert(0,self.starting_value)
+        random_returns = [self.__get_random_factor()
+                          for period in range(self.periods)]
+        random_returns.insert(0, self.starting_value)
 
-        df_sim = pd.DataFrame(random_returns,columns = ['returns'])
+        df_sim = pd.DataFrame(random_returns, columns=['returns'])
 
         if self.action == 'add':
             df_sim[f'run_{simulation_requests}'] = df_sim.cumsum()
@@ -90,7 +100,7 @@ class montecarlo:
             df_sim[f'run_{simulation_requests}'] = df_sim.cumprod()
 
         return df_sim[f'run_{simulation_requests}']
-        
+
     def get_simulations(self):
 
         return self.simulatations
@@ -101,12 +111,12 @@ class montecarlo:
     #     run monte carlo when goal_stop is False
     #     '''
 
-    #     self.__start_df = {}        
-        
+    #     self.__start_df = {}
+
     #     for simulation_requests in range(1,self.sims+1):
     #         self.__start_df[f'run_{simulation_requests}'] = list(self.starting_value)
-        
-    #     self.df = pd.DataFrame(data = self.starting_value) 
+
+    #     self.df = pd.DataFrame(data = self.starting_value)
 
     #     for _ in self.periods:
     #         self.df = pd.concat([self.df, self.get_next_row], ignore_index=True)
@@ -125,20 +135,16 @@ class montecarlo:
     #             if self.__check_min_max(data_for_new_row[f'run_{simulation_requests}']):
     #                 data_for_new_row[f'run_{simulation_requests}'] = self.df[f'run_{simulation_requests}'].iloc[-1]
 
-
     #     if self.action == 'multiply':
 
     #         for simulation_requests in range(1,self.sims+1):
     #             data_for_new_row[f'run_{simulation_requests}'] = self.df[f'run_{simulation_requests}'].iloc[-1] * self.__get_random_factor
 
-
-    #             if self.__check_min_max(data_for_new_row[f'run_{simulation_requests}']): 
+    #             if self.__check_min_max(data_for_new_row[f'run_{simulation_requests}']):
     #                 data_for_new_row[f'run_{simulation_requests}'] = self.df[f'run_{simulation_requests}'].iloc[-1]
-
 
     #     return pd.DataFrame(data = data_for_new_row)
 
-    
     def __get_random_factor(self):
         '''
         returns a randomly selected 
@@ -161,63 +167,101 @@ class montecarlo:
 
     def paramaters(self):
 
-        paramaters_used = {'returns used' : self.returns_iter,  
-                            'start' : self.starting_value, 
-                            'number of simulations' : self.sims, 
-                            'period per simulation' : self.periods ,
-                            'function used (add or multiply)' : self.action, 
-                            'seed':np.random.seed()
-        }
+        paramaters_used = {'returns used': self.returns_iter,
+                           'start': self.starting_value,
+                           'number of simulations': self.sims,
+                           'period per simulation': self.periods,
+                           'function used (add or multiply)': self.action,
+                           'seed': np.random.seed()
+                           }
 
-        for key,item in paramaters_used.items():
-            print(f'{key}: {item}')
+        for key, item in paramaters_used.items():
+            print(f'{key} : {item}')
 
         return paramaters_used
 
     def summary(self):
 
-        summary_stats = {'max' : max(self.simulatations.max()),  
-                         'min' : min(self.simulatations.min()), 
-                         'avg end' : np.mean(self.simulatations.iloc[-1,:]),
-                         'avg run' : self.__average_simulation()
-                        }
+        summary_stats = {'max': max(self.simulatations.max()),
+                         'min': min(self.simulatations.min()),
+                         'avg end': np.mean(self.simulatations.iloc[-1, :]),
+                         'avg run': self.__average_simulation()
+                         }
 
-        for key,value in summary_stats.items():
+        for key, value in summary_stats.items():
             print(f'{key} {value}')
 
         return summary_stats
 
+    def __get_final_row(self):
+
+        self.final_row = self.simulatations.iloc[-1]
+
+        return None
+
+    def prob_greater_than(self, some_num, and_equal_to=True):
+
+        assert isinstance(some_num, (int, float)
+                          ), 'some_num needs to be a real number'
+
+        if and_equal_to:
+
+            self.num_prob_greater_than = len(
+                self.final_row.loc[self.final_row >= some_num])
+
+        else:
+
+            self.num_prob_greater_than = len(
+                self.final_row.loc[self.final_row > some_num])
+
+        return self.num_prob_greater_than / len(self.final_row)
+
+    def prob_less_than(self, some_num, and_equal_to=True):
+
+        assert isinstance(some_num, (int, float)
+                          ), 'some_num needs to be a real number'
+
+        if and_equal_to:
+
+            self.num_prob_less_than = len(
+                self.final_row.loc[self.final_row <= some_num])
+
+        else:
+
+            self.num_prob_less_than = len(
+                self.final_row.loc[self.final_row < some_num])
+
+        return self.num_prob_less_than / len(self.final_row)
+
     def __average_simulation(self):
-        
-        self.average_simulation = self.simulatations.apply(np.mean,axis=1)
+
+        self.average_simulation = self.simulatations.apply(np.mean, axis=1)
 
         return self.average_simulation
-        
 
-    def plot(self,figsize = None):
-
+    def plot(self, figsize=None):
         '''
         plots result of monte_carlo, basically gonna look like a rainbow
         '''
 
         if figsize:
-            plt.figure(figsize = figsize)
+            plt.figure(figsize=figsize)
 
         plt.title(f'{self.sims} Runs')
 
         plt.xlabel('Period')
         plt.ylabel('Value')
 
-        with futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor: 
-            executor.map(self.__plot,self.simulatations.columns)
+        with futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            executor.map(self.__plot, self.simulatations.columns)
 
         plt.axhline(self.starting_value, color='black')
-        plt.legend(self.simulatations.columns,loc = 'best')
+        plt.legend(self.simulatations.columns, loc='best')
         plt.show()
 
         return None
-    
-    def __plot(self,column):
+
+    def __plot(self, column):
 
         plt.plot(self.simulatations[column])
 
@@ -243,5 +287,5 @@ class montecarlo:
     #         )
 
     #     return app
-        #if __name__ == '__main__':
+        # if __name__ == '__main__':
         #    app.run_server(debug=True)
